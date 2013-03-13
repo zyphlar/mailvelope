@@ -187,6 +187,44 @@ define(function (require, exports, module) {
           dDialogPorts[id].postMessage({event: 'error-message', error: e.message});
         }
         break;
+      case 'dframe-armored-signed-message':
+        alert('signed');
+        try {
+          var message = model.verifySignedMessage(msg.data);
+          // password or unlocked key in cache?
+          var cache = pwdCache.get(message.primkeyid, message.keyid);
+          if (!cache) {
+            // add message in buffer
+            dMessageBuffer[id] = message;
+            // open password dialog
+            if (prefs.data.security.display_decrypted == mvelo.DISPLAY_INLINE) {
+              mvelo.windows.openPopup('common/ui/modal/pwdDialog.html?id=' + id, {width: 462, height: 377, modal: true});
+            } else if (prefs.data.security.display_decrypted == mvelo.DISPLAY_POPUP) {
+              dDialogPorts[id].postMessage({event: 'show-pwd-dialog'});
+            }
+          } else {
+            if (!cache.key) {
+              // unlock key
+              var unlocked = model.unlockKey(message.privkey, cache.password);
+              if (!unlocked) {
+                throw {
+                  type: 'error',
+                  message: 'Password caching does not support different passphrases for primary key and subkeys'
+                }
+              }
+              // set unlocked key in cache
+              pwdCache.set(message);
+            } else {
+              // take unlocked key from cache
+              message.privkey = cache.key;
+            }
+            decryptMessage(message, id);
+          }
+        } catch (e) {
+          // display error message in decrypt dialog
+          dDialogPorts[id].postMessage({event: 'error-message', error: e.message});
+        }
+        break;
       case 'pwd-dialog-ok':
         var message = dMessageBuffer[id];
         try {

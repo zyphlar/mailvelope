@@ -9782,7 +9782,7 @@ var DecryptFrame = DecryptFrame || (function() {
       this._init(pgpEnd);
       this._getMessageType();
       // currently only this type supported
-      if (this._pgpMessageType === mvelo.PGP_MESSAGE) {
+      if (this._pgpMessageType === mvelo.PGP_MESSAGE || this._pgpMessageType === mvelo.PGP_SIGNATURE) {
         this._renderFrame();
         this._establishConnection();
         this._registerEventListener();
@@ -9938,22 +9938,31 @@ var DecryptFrame = DecryptFrame || (function() {
     },
     
     _getArmoredMessage: function() {
-      if (this._pgpElement.is('pre')) {
-        return this._pgpElement.text();
-      } else {
+      //if (this._pgpElement.is('pre')) {
+      //  return this._pgpElement.text();
+      //} else {
         var msg = this._pgpElement.html();
         msg = msg.replace(/\n/g, ' '); // replace new line with space
         msg = msg.replace(/(<br>)/g, '\n'); // replace <br> with new line
         msg = msg.replace(/<(\/.+?)>/g, '\n'); // replace closing tags </..> with new line
         msg = msg.replace(/<(.+?)>/g, ''); // remove opening tags
-        //
+        
         msg = msg.replace(/&nbsp;/g, ' '); // replace non-breaking space with whitespace
-        msg = msg.replace(/\n\s+/g, '\n'); // compress sequence of whitespace and new line characters to one new line
-        var msgRegex = /-----BEGIN PGP MESSAGE-----[\s\S]+?-----END PGP MESSAGE-----/;
+        //msg = msg.replace(/\n\s+/g, '\n'); // compress sequence of whitespace and new line characters to one new line
+        var msgRegex;
+        if(this._pgpMessageType === mvelo.PGP_MESSAGE){
+          msgRegex = /-----BEGIN PGP MESSAGE-----[\s\S]+?-----END PGP MESSAGE-----/;
+        }
+        else if(this._pgpMessageType === mvelo.PGP_SIGNATURE){
+          msgRegex = /-----BEGIN PGP SIGNED MESSAGE-----[\s\S]+?-----END PGP SIGNATURE-----/;
+        }
+        else {
+          console.log("Error: unable to _getArmoredMessage for the correct _pgpMessageType.")
+        }
         msg = msg.match(msgRegex)[0];
         msg = msg.replace(/:.*\n(?!.*:)/, '$&\n');  // insert new line after last armor header
         return msg;
-      }
+      //}
     },
     
     _registerEventListener: function() {
@@ -9966,8 +9975,15 @@ var DecryptFrame = DecryptFrame || (function() {
             that._removeDialog();
             break;
           case 'armored-message':
+            var thisMessageType;
+            if(this._pgpMessageType === mvelo.PGP_SIGNATURE){
+              thisMessageType = 'dframe-armored-signed-message'
+            }
+            else {
+              thisMessageType = 'dframe-armored-message'
+            }
             that._port.postMessage({
-              event: 'dframe-armored-message', 
+              event: thisMessageType, 
               data: that._getArmoredMessage(),
               sender: 'dFrame-' + that.id
             });

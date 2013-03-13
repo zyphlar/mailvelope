@@ -341,6 +341,72 @@ define(function(require, exports, module) {
     result.primkeyid = '';
     var primarykey;
     // Find the private (sub)key for the session key of the message
+    if(result.message.sessionKeys != null){
+      outer: for (var i = 0; i < result.message.sessionKeys.length; i++) {
+        for (var j = 0; j < openpgp.keyring.privateKeys.length; j++) {
+          if (openpgp.keyring.privateKeys[j].obj.privateKeyPacket.publicKey.getKeyId() == result.message.sessionKeys[i].keyId.bytes) {
+            result.privkey = { keymaterial: openpgp.keyring.privateKeys[j].obj.privateKeyPacket };
+            result.sesskey = result.message.sessionKeys[i];
+            primarykey = openpgp.keyring.privateKeys[j].obj;
+            break outer;
+          }
+          for (var k = 0; k < openpgp.keyring.privateKeys[j].obj.subKeys.length; k++) {
+            if (openpgp.keyring.privateKeys[j].obj.subKeys[k].publicKey.getKeyId() == result.message.sessionKeys[i].keyId.bytes) {
+              result.privkey = { keymaterial: openpgp.keyring.privateKeys[j].obj.subKeys[k] };
+              result.sesskey = result.message.sessionKeys[i];
+              primarykey = openpgp.keyring.privateKeys[j].obj;
+              break outer;
+            }
+          }
+        }
+      }
+      if (result.privkey != null) {
+        result.userid = decode_utf8(primarykey.userIds[0].text);
+        result.primkeyid = util.hexstrdump(primarykey.getKeyId()).toUpperCase(); 
+        result.keyid = util.hexstrdump(result.privkey.keymaterial.publicKey.getKeyId()).toUpperCase();
+      } else {
+        // unknown private key
+        result.keyid = util.hexstrdump(result.message.sessionKeys[0].keyId.bytes).toUpperCase();
+        var message = 'No private key found for this message. Required private key IDs: ' + result.keyid;
+        for (var i = 1; i < result.message.sessionKeys.length; i++) {
+          message = message + ' or ' + util.hexstrdump(result.message.sessionKeys[i].keyId.bytes).toUpperCase();
+        }
+        throw {
+          type: 'error',
+          message: message,
+          keyid: result.keyid
+        }
+      }
+    }
+    else {
+      // This is probably a signature.
+      var message = result.message.signature.issuerKeyId;
+      alert('keyid');
+      alert(util.hexstrdump(message));
+      alert('user');
+      alert(result.message.signature.signersUserId)
+    }
+    return result;
+  }
+
+  function verifySignedMessage(armoredText) {
+    var result = {};
+    try {
+      alert("verifySignedMessage");
+      result.message = openpgp.read_message(armoredText)[0];
+    } catch (e) {
+      throw {
+        type: 'error',
+        message: 'Could not read this encrypted message'
+      }
+    }
+    result.privkey = null;
+    result.sesskey = null;
+    result.userid = '';
+    result.keyid = '';
+    result.primkeyid = '';
+    var primarykey;
+    // Find the private (sub)key for the session key of the message
     outer: for (var i = 0; i < result.message.sessionKeys.length; i++) {
       for (var j = 0; j < openpgp.keyring.privateKeys.length; j++) {
         if (openpgp.keyring.privateKeys[j].obj.privateKeyPacket.publicKey.getKeyId() == result.message.sessionKeys[i].keyId.bytes) {
@@ -483,6 +549,7 @@ define(function(require, exports, module) {
   exports.validateEmail = validateEmail;
   exports.generateKey = generateKey;
   exports.readMessage = readMessage;
+  exports.verifySignedMessage = verifySignedMessage;
   exports.decryptMessage = decryptMessage;
   exports.unlockKey = unlockKey;
   exports.encryptMessage = encryptMessage;

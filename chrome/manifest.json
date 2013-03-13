@@ -1,9 +1,9 @@
 {
   "name": "Mailvelope",
-  "version": "0.6",
+  "version": "0.61",
   "description": "Secure email with OpenPGP encryption for Webmail",
   "homepage_url":"http://www.mailvelope.com",
-  "manifest_version": 2,
+  "manifest_version": 3,
   "minimum_chrome_version": "21",
   "icons": { 
     "16": "common/img/encrypt-16.png",
